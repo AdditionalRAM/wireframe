@@ -74,7 +74,7 @@ public class WireframeRenderer {
         Tesselator tesselator = Tesselator.getInstance();
         BufferBuilder bufferBuilder = tesselator.getBuilder();
 
-        float radius = WireframeState.renderDistance;
+        float radius = WireframeState.currentRenderDistance;
         BlockPos center = new BlockPos(camPos.x, camPos.y, camPos.z);
         int searchRadius = (int)radius + 1;
         int searchRadiusY = (int)(radius * 2.5f) + 1;

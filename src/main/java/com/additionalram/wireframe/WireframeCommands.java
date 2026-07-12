@@ -94,6 +94,17 @@ public class WireframeCommands {
                     )
                 )
 
+                .then(Commands.literal("setMovementEffectsIntensity")
+                    .then(Commands.argument("intensity", FloatArgumentType.floatArg(0f, 2.0f))
+                        .executes(context -> {
+                            float intensity = FloatArgumentType.getFloat(context, "intensity");
+                            WireframeState.movementEffectsIntensity = intensity;
+                            sendFeedback(context.getSource(), "Movement effects intensity set to " + intensity);
+                            return 1;
+                        })
+                    )
+                )
+
                 .then(Commands.literal("setFadeDistance")
                     .then(Commands.argument("distance", FloatArgumentType.floatArg(0.5f, 8.0f))
                         .executes(context -> {
