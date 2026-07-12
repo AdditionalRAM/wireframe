@@ -1,6 +1,7 @@
 package com.additionalram.wireframe;
 
 import com.mojang.brigadier.arguments.FloatArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -34,6 +35,54 @@ public class WireframeCommands {
                     })
                 )
 
+                .then(Commands.literal("renderEntities")
+                    .executes(context -> {
+                        WireframeState.renderEntities = !WireframeState.renderEntities;
+                        sendFeedback(context.getSource(), WireframeState.renderEntities ? "Entities enabled" : "Entities disabled");
+                        return 1;
+                    })
+                )
+
+                .then(Commands.literal("renderBlocks")
+                    .executes(context -> {
+                        WireframeState.renderBlocks = !WireframeState.renderBlocks;
+                        sendFeedback(context.getSource(), WireframeState.renderBlocks ? "Blocks enabled" : "Blocks disabled");
+                        return 1;
+                    })
+                )
+
+                .then(Commands.literal("setBlocksColor")
+                    .then(Commands.argument("hex", StringArgumentType.greedyString())
+                        .executes(context -> {
+                            String input = StringArgumentType.getString(context, "hex");
+                            if (input.matches("^#?([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$")) {
+                                writeHexToState(input, false);
+                                sendFeedback(context.getSource(), "Block color updated");
+                                return 1;
+                            } else {
+                                sendFeedback(context.getSource(), "Invalid color! Use hex (e.g. #FFFFFF)");
+                                return 0;
+                            }
+                        })
+                    )
+                )
+
+                .then(Commands.literal("setEntitiesColor")
+                    .then(Commands.argument("hex", StringArgumentType.greedyString())
+                        .executes(context -> {
+                            String input = StringArgumentType.getString(context, "hex");
+                            if (input.matches("^#?([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$")) {
+                                writeHexToState(input, true);
+                                sendFeedback(context.getSource(), "Entities color updated");
+                                return 1;
+                            } else {
+                                sendFeedback(context.getSource(), "Invalid color! Use hex (e.g. #FFFFFF)");
+                                return 0;
+                            }
+                        })
+                    )
+                )
+
                 .then(Commands.literal("setRenderDistance")
                     .then(Commands.argument("distance", FloatArgumentType.floatArg(0.5f, 8.0f))
                         .executes(context -> {
@@ -60,5 +109,32 @@ public class WireframeCommands {
 
     private static void sendFeedback(CommandSourceStack source, String message) {
         source.sendSuccess(new TextComponent("[Wireframe] " + message), false);
+    }
+
+    private static void writeHexToState(String givenHexCode, Boolean entities) {
+        // strip #
+        String hex = givenHexCode.startsWith("#") ? givenHexCode.substring(1) : givenHexCode;
+
+        // short hex support
+        if (hex.length() == 3) {
+            char r = hex.charAt(0);
+            char g = hex.charAt(1);
+            char b = hex.charAt(2);
+            hex = "" + r + r + g + g + b + b;
+        }
+
+        float red = Integer.parseInt(hex.substring(0, 2), 16) / 255.0f;
+        float green = Integer.parseInt(hex.substring(2, 4), 16) / 255.0f;
+        float blue = Integer.parseInt(hex.substring(4, 6), 16) / 255.0f;
+
+        if (entities) {
+            WireframeState.entitiesR = red;
+            WireframeState.entitiesG = green;
+            WireframeState.entitiesB = blue;
+        } else {
+            WireframeState.blocksR = red;
+            WireframeState.blocksG = green;
+            WireframeState.blocksB = blue;
+        }
     }
 }

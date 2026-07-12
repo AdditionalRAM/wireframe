@@ -77,13 +77,14 @@ public class WireframeRenderer {
         float radius = WireframeState.renderDistance;
         BlockPos center = new BlockPos(camPos.x, camPos.y, camPos.z);
         int searchRadius = (int)radius + 1;
+        int searchRadiusY = (int)(radius * 2.5f) + 1;
 
         java.util.List<AABB> visibleBlocks = new java.util.ArrayList<>();
         
         // blocks rendering
         if (WireframeState.renderBlocks) {
             for (int x = -searchRadius; x <= searchRadius; x++) {
-                for (int y = -searchRadius; y <= searchRadius; y++) {
+                for (int y = -searchRadiusY; y <= searchRadius; y++) { // we search more in the -y direction to account for the boost
                     for (int z = -searchRadius; z <= searchRadius; z++) {
                         BlockPos pos = center.offset(x, y, z);
                         BlockState state = level.getBlockState(pos);
@@ -132,14 +133,13 @@ public class WireframeRenderer {
             poseStack.pushPose();
             poseStack.translate(-camPos.x, -camPos.y, -camPos.z);
 
-            // Draw terrain blocks in White (1f, 1f, 1f)
             for(AABB bounds : visibleBlocks) {
-                drawFadingBox(poseStack, bufferBuilder, bounds.inflate(0.002), camPos, radius, 1.0f, 1.0f, 1.0f);
+                drawFadingBox(poseStack, bufferBuilder, bounds.inflate(0.002), camPos, radius, WireframeState.blocksR, WireframeState.blocksG, WireframeState.blocksB);
             }
             
-            // Draw entities in Red (1f, 0f, 0f)
+
             for(AABB bounds : visibleEntities) {
-                drawFadingBox(poseStack, bufferBuilder, bounds.inflate(0.002), camPos, radius, 1.0f, 0.0f, 0.0f);
+                drawFadingBox(poseStack, bufferBuilder, bounds.inflate(0.002), camPos, radius, WireframeState.entitiesR, WireframeState.entitiesG, WireframeState.entitiesB);
             }
 
             tesselator.end();
