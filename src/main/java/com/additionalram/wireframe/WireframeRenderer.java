@@ -15,6 +15,7 @@ import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
@@ -52,7 +53,7 @@ public class WireframeRenderer {
         Vec3 camPos = camera.getPosition();
         PoseStack poseStack = event.getPoseStack();
 
-        // Frustum frustum = event.getFrustum();
+        Frustum frustum = event.getFrustum();
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -87,7 +88,9 @@ public class WireframeRenderer {
                         BlockPos pos = center.offset(x, y, z);
                         BlockState state = level.getBlockState(pos);
                         if (!state.isAir() && !state.getShape(level, pos).isEmpty()) {
-                            visibleBlocks.add(state.getShape(level, pos).bounds().move(pos));
+                            AABB bounds = state.getShape(level, pos).bounds().move(pos);
+                            if(frustum.isVisible(bounds)) // frustum culling
+                                visibleBlocks.add(bounds);
                         }
                     }
                 }
@@ -100,8 +103,10 @@ public class WireframeRenderer {
             for (Entity entity : level.entitiesForRendering()) {
                 if (entity.distanceToSqr(camera.getEntity()) <= (radius * radius)) { // sqrt is expensive
                     if (shouldRenderEntity(entity, camera)) {
-                        visibleEntities.add(entity.getBoundingBox().inflate(0.01));
                         // inflated more than blocks on purpose
+                        AABB bounds = entity.getBoundingBox().inflate(0.01);
+                            if(frustum.isVisible(bounds)) // frustum culling
+                                visibleEntities.add(bounds);
                     }
                 }
             }
