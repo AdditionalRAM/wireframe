@@ -15,10 +15,9 @@ import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.GameRenderer;
-import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -80,6 +79,7 @@ public class WireframeRenderer {
 
         java.util.List<AABB> visibleBlocks = new java.util.ArrayList<>();
         
+        // blocks rendering
         if (WireframeState.renderBlocks) {
             for (int x = -searchRadius; x <= searchRadius; x++) {
                 for (int y = -searchRadius; y <= searchRadius; y++) {
@@ -94,33 +94,53 @@ public class WireframeRenderer {
             }
         }
 
-        if(WireframeState.blind && !visibleBlocks.isEmpty()){
+        // entities rendering
+        java.util.List<AABB> visibleEntities = new java.util.ArrayList<>();
+        if (WireframeState.renderEntities) { 
+            for (Entity entity : level.entitiesForRendering()) {
+                if (entity.distanceToSqr(camera.getEntity()) <= (radius * radius)) { // sqrt is expensive
+                    if (shouldRenderEntity(entity, camera)) {
+                        visibleEntities.add(entity.getBoundingBox().inflate(0.01));
+                        // inflated more than blocks on purpose
+                    }
+                }
+            }
+        }
+
+        if (WireframeState.blind && (!visibleBlocks.isEmpty() || !visibleEntities.isEmpty())) {
             RenderSystem.clear(org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT, Minecraft.ON_OSX);
             RenderSystem.setShader(GameRenderer::getPositionColorShader);
             bufferBuilder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
             poseStack.pushPose();
             poseStack.translate(-camPos.x, -camPos.y, -camPos.z);
 
-            for (AABB bounds : visibleBlocks) {
-                drawSolidBox(poseStack, bufferBuilder, bounds); // Un-inflated
-            }
+            for (AABB bounds : visibleBlocks) drawSolidBox(poseStack, bufferBuilder, bounds);
+            for (AABB bounds : visibleEntities) drawSolidBox(poseStack, bufferBuilder, bounds);
 
             tesselator.end();
             poseStack.popPose();
         }
 
-        if(!visibleBlocks.isEmpty()){
+        if (!visibleBlocks.isEmpty() || !visibleEntities.isEmpty()) {
             RenderSystem.setShader(GameRenderer::getRendertypeLinesShader);
             bufferBuilder.begin(VertexFormat.Mode.LINES, DefaultVertexFormat.POSITION_COLOR_NORMAL);
             poseStack.pushPose();
             poseStack.translate(-camPos.x, -camPos.y, -camPos.z);
-            for(AABB bounds : visibleBlocks){
-                drawFadingBox(poseStack, bufferBuilder, bounds.inflate(0.002), camPos, radius);
+
+            // Draw terrain blocks in White (1f, 1f, 1f)
+            for(AABB bounds : visibleBlocks) {
+                drawFadingBox(poseStack, bufferBuilder, bounds.inflate(0.002), camPos, radius, 1.0f, 1.0f, 1.0f);
+            }
+            
+            // Draw entities in Red (1f, 0f, 0f)
+            for(AABB bounds : visibleEntities) {
+                drawFadingBox(poseStack, bufferBuilder, bounds.inflate(0.002), camPos, radius, 1.0f, 0.0f, 0.0f);
             }
 
             tesselator.end();
             poseStack.popPose();
         }
+
 
         RenderSystem.enableTexture();
         // RenderSystem.enableDepthTest();
@@ -140,30 +160,30 @@ public class WireframeRenderer {
         // );
     }
 
-    private static void drawFadingBox(PoseStack poseStack, BufferBuilder builder, AABB bounds, Vec3 camPos, float radius) {
+    private static void drawFadingBox(PoseStack poseStack, BufferBuilder builder, AABB bounds, Vec3 camPos, float radius, float r, float g, float b) {
         float minX = (float) bounds.minX; float minY = (float) bounds.minY; float minZ = (float) bounds.minZ;
         float maxX = (float) bounds.maxX; float maxY = (float) bounds.maxY; float maxZ = (float) bounds.maxZ;
 
         // X axis lines
-        drawFadingLine(poseStack, builder, camPos, radius, minX, minY, minZ, maxX, minY, minZ, 1, 0, 0);
-        drawFadingLine(poseStack, builder, camPos, radius, minX, maxY, minZ, maxX, maxY, minZ, 1, 0, 0);
-        drawFadingLine(poseStack, builder, camPos, radius, minX, minY, maxZ, maxX, minY, maxZ, 1, 0, 0);
-        drawFadingLine(poseStack, builder, camPos, radius, minX, maxY, maxZ, maxX, maxY, maxZ, 1, 0, 0);
+        drawFadingLine(poseStack, builder, camPos, radius, minX, maxY, minZ, maxX, maxY, minZ, 1, 0, 0, r, g, b);
+        drawFadingLine(poseStack, builder, camPos, radius, minX, minY, minZ, maxX, minY, minZ, 1, 0, 0, r, g, b);
+        drawFadingLine(poseStack, builder, camPos, radius, minX, minY, maxZ, maxX, minY, maxZ, 1, 0, 0, r, g, b);
+        drawFadingLine(poseStack, builder, camPos, radius, minX, maxY, maxZ, maxX, maxY, maxZ, 1, 0, 0, r, g, b);
 
         // Y axis lines
-        drawFadingLine(poseStack, builder, camPos, radius, minX, minY, minZ, minX, maxY, minZ, 0, 1, 0);
-        drawFadingLine(poseStack, builder, camPos, radius, maxX, minY, minZ, maxX, maxY, minZ, 0, 1, 0);
-        drawFadingLine(poseStack, builder, camPos, radius, minX, minY, maxZ, minX, maxY, maxZ, 0, 1, 0);
-        drawFadingLine(poseStack, builder, camPos, radius, maxX, minY, maxZ, maxX, maxY, maxZ, 0, 1, 0);
+        drawFadingLine(poseStack, builder, camPos, radius, minX, minY, minZ, minX, maxY, minZ, 0, 1, 0, r, g, b);
+        drawFadingLine(poseStack, builder, camPos, radius, maxX, minY, minZ, maxX, maxY, minZ, 0, 1, 0, r, g, b);
+        drawFadingLine(poseStack, builder, camPos, radius, minX, minY, maxZ, minX, maxY, maxZ, 0, 1, 0, r, g, b);
+        drawFadingLine(poseStack, builder, camPos, radius, maxX, minY, maxZ, maxX, maxY, maxZ, 0, 1, 0, r, g, b);
 
         // Z axis lines
-        drawFadingLine(poseStack, builder, camPos, radius, minX, minY, minZ, minX, minY, maxZ, 0, 0, 1);
-        drawFadingLine(poseStack, builder, camPos, radius, maxX, minY, minZ, maxX, minY, maxZ, 0, 0, 1);
-        drawFadingLine(poseStack, builder, camPos, radius, minX, maxY, minZ, minX, maxY, maxZ, 0, 0, 1);
-        drawFadingLine(poseStack, builder, camPos, radius, maxX, maxY, minZ, maxX, maxY, maxZ, 0, 0, 1);
+        drawFadingLine(poseStack, builder, camPos, radius, minX, minY, minZ, minX, minY, maxZ, 0, 0, 1, r, g, b);
+        drawFadingLine(poseStack, builder, camPos, radius, maxX, minY, minZ, maxX, minY, maxZ, 0, 0, 1, r, g, b);
+        drawFadingLine(poseStack, builder, camPos, radius, minX, maxY, minZ, minX, maxY, maxZ, 0, 0, 1, r, g, b);
+        drawFadingLine(poseStack, builder, camPos, radius, maxX, maxY, minZ, maxX, maxY, maxZ, 0, 0, 1, r, g, b);
     }
 
-    private static void drawFadingLine(PoseStack poseStack, BufferBuilder builder, Vec3 camPos, float radius, float x1, float y1, float z1, float x2, float y2, float z2, float nx, float ny, float nz){
+    private static void drawFadingLine(PoseStack poseStack, BufferBuilder builder, Vec3 camPos, float radius, float x1, float y1, float z1, float x2, float y2, float z2, float nx, float ny, float nz, float r, float g, float b){
         
         float dX1 = x1 - (float)camPos.x;
         float dY1 = y1 - (float)camPos.y;
@@ -190,8 +210,18 @@ public class WireframeRenderer {
         Matrix4f pose = poseStack.last().pose();
         Matrix3f normal = poseStack.last().normal();
 
-        builder.vertex(pose, x1, y1, z1).color(1.0F, 1.0F, 1.0F, a1).normal(normal, nx, ny, nz).endVertex();
-        builder.vertex(pose, x2, y2, z2).color(1.0F, 1.0F, 1.0F, a2).normal(normal, nx, ny, nz).endVertex();
+        builder.vertex(pose, x1, y1, z1).color(r, g, b, a1).normal(normal, nx, ny, nz).endVertex();
+        builder.vertex(pose, x2, y2, z2).color(r, g, b, a2).normal(normal, nx, ny, nz).endVertex();
+    }
+
+    private static boolean shouldRenderEntity(Entity entity, Camera camera) {
+        // no player hitbox in first person
+        if (entity == camera.getEntity() && Minecraft.getInstance().options.getCameraType().isFirstPerson()) {
+            return false;
+        }
+
+        // TODO: add entity filters as necessary here
+        return true;
     }
 
     // holy spaghetti
