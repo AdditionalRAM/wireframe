@@ -168,11 +168,17 @@ public class WireframeRenderer {
         float dX1 = x1 - (float)camPos.x;
         float dY1 = y1 - (float)camPos.y;
         float dZ1 = z1 - (float)camPos.z;
+
+        if(dY1 < 0) dY1 *= 0.4f; // points below the camera are calculated as being closer than they actually are
+
         float dist1 = (float)Math.sqrt(dX1*dX1 + dY1*dY1 + dZ1*dZ1);
 
         float dX2 = x2 - (float)camPos.x;
         float dY2 = y2 - (float)camPos.y;
         float dZ2 = z2 - (float)camPos.z;
+
+        if(dY2 < 0) dY2 *= 0.4f; // points below the camera are calculated as being closer than they actually are
+
         float dist2 = (float)Math.sqrt(dX2*dX2 + dY2*dY2 + dZ2*dZ2);
 
         float fadeStart = Math.max(radius - WireframeState.fadeStartDistance, 0);
